@@ -82,15 +82,18 @@ graph TD
   - Widget bounds and UI constraints
   - Policy enforcement before WASM execution
 
-### `sync-fs` (VFS/FUSE)
+### `sync-fs` (VFS/WebDAV)
 **Responsibility**: Virtual filesystem abstraction, exposing `.sync` payloads as files
 
-- **Dependencies**: sync-format + filesystem abstractions
-- **Use case**: Mounting `.sync` archives as virtual files, future FUSE integration
+- **Dependencies**: sync-format + WebDAV server (dav-server, hyper, tokio)
+- **Use case**: Mounting `.sync` archives as network drives via WebDAV
 - **Key Features**:
   - Display name generation from manifest metadata
   - Read-only mount configuration
   - Extension-aware path generation
+  - **WebDAV Server**: Mount `.sync` files directly in Finder (macOS), Explorer (Windows), or file manager (Linux)
+  - **Zero-Copy Reads**: Uses `pread()` for instant data access without extraction
+  - **No Kernel Extensions**: Works on Apple Silicon without any special setup
 
 ---
 
@@ -240,6 +243,101 @@ let mount = VfsMount::from_archive(&archive, config)?;
 // List virtual entries
 for entry in mount.entries() {
     println!("{}: {}", entry.display_name, entry.vfs_path.display());
+}
+```
+
+### FUSE Mounting (Open in Finder)
+
+> **⚠️ Deprecated**: FUSE approach requires kernel extensions on macOS (macFUSE) which need
+> special setup on Apple Silicon Macs. Use the **WebDAV approach** below instead.
+
+### WebDAV Mounting (Recommended)
+
+Mount `.sync` archives via a local WebDAV server. This works on **all platforms without any additional software**.
+
+#### Prerequisites
+
+**None required!** WebDAV is natively supported on macOS, Windows, and Linux.
+
+#### Building
+
+```bash
+# Build the sync-mount CLI
+cargo build --package sync-fs --features cli --release
+
+# The binary will be at:
+# target/release/sync-mount
+```
+
+#### Usage
+
+```bash
+# Start WebDAV server (default port 4918)
+./target/release/sync-mount data.sync
+
+# Or specify a custom port
+./target/release/sync-mount data.sync --port 8080
+```
+
+Then mount in Finder:
+
+1. Open Finder
+2. Press **Cmd+K** (Go → Connect to Server)
+3. Enter: `http://localhost:4918`
+4. Click **Connect**
+
+The `.sync` file contents will appear as a mounted network drive!
+
+#### From Terminal (macOS)
+
+```bash
+# Mount using mount_webdav
+mkdir -p /tmp/sync-mount
+mount_webdav http://localhost:4918 /tmp/sync-mount
+
+# Now access the files
+open /tmp/sync-mount/data.xlsx
+```
+
+#### Programmatic WebDAV Server
+
+```rust
+use sync_fs::webdav::serve;
+use sync_fs::{VfsMount, VfsMountConfig};
+use sync_format::SyncArchive;
+
+#[tokio::main]
+async fn main() -> std::io::Result<()> {
+    let archive = SyncArchive::open("data.sync").unwrap();
+    let vfs = VfsMount::from_archive(&archive, VfsMountConfig::default()).unwrap();
+    
+    // Start server on port 4918 (blocks until Ctrl+C)
+    serve("data.sync", vfs, 4918).await
+}
+```
+
+#### Background Server for Applications
+
+```rust
+use sync_fs::webdav::serve_background;
+use sync_fs::{VfsMount, VfsMountConfig};
+use sync_format::SyncArchive;
+
+#[tokio::main]
+async fn main() -> std::io::Result<()> {
+    let archive = SyncArchive::open("data.sync").unwrap();
+    let vfs = VfsMount::from_archive(&archive, VfsMountConfig::default()).unwrap();
+    
+    // Start server in background (returns immediately)
+    let server = serve_background("data.sync", vfs, 0).await?;
+    
+    println!("Server running at {}", server.mount_url());
+    
+    // Do other work...
+    
+    // Shutdown when done
+    server.shutdown();
+    Ok(())
 }
 ```
 

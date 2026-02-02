@@ -5,12 +5,41 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Virtual filesystem abstraction for .sync archives"
+description = "Virtual filesystem abstraction for .sync archives with WebDAV server"
 
 [dependencies]
 sync-format = { workspace = true }
 thiserror = { workspace = true }
+log = { workspace = true }
+
+# WebDAV server (default)
+dav-server = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+hyper = { workspace = true, optional = true }
+hyper-util = { workspace = true, optional = true }
+http-body-util = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
+
+# FUSE bindings (Unix only: Linux/macOS, optional for power users)
+fuser = { workspace = true, optional = true }
+libc = { workspace = true, optional = true }
+
+# CLI dependencies
+clap = { workspace = true, optional = true }
+env_logger = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
 zip = { workspace = true }
+
+[features]
+default = []
+webdav = ["dep:dav-server", "dep:tokio", "dep:hyper", "dep:hyper-util", "dep:http-body-util", "dep:futures", "dep:bytes"]
+fuse = ["dep:fuser", "dep:libc"]
+cli = ["webdav", "dep:clap", "dep:env_logger"]
+
+[[bin]]
+name = "sync-mount"
+path = "src/bin/sync_mount.rs"
+required-features = ["cli"]
