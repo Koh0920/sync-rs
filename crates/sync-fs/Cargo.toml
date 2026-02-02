@@ -1,0 +1,16 @@
+[package]
+name = "sync-fs"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Virtual filesystem abstraction for .sync archives"
+
+[dependencies]
+sync-format = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+zip = { workspace = true }

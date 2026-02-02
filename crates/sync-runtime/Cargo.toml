@@ -1,0 +1,24 @@
+[package]
+name = "sync-runtime"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WASM execution runtime and guest session management for .sync archives"
+
+[dependencies]
+sync-format = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+base64 = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# Phase 3: Sandbox (Linux Landlock LSM)
+landlock = "0.4"
+aya = "0.13"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+zip = { workspace = true }

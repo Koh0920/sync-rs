@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/sync-format",
+    "crates/sync-runtime",
+    "crates/sync-fs",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Capsule Project Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/anomalyco/sync-rs"
+
+[workspace.dependencies]
+# Internal crates
+sync-format = { path = "crates/sync-format" }
+sync-runtime = { path = "crates/sync-runtime" }
+sync-fs = { path = "crates/sync-fs" }
+
+# Shared dependencies
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+base64 = "0.22"
+zip = { version = "2.0", default-features = false }
+blake3 = "1.5"
+anyhow = "1.0"
+thiserror = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+tempfile = "3.8"
