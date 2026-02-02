@@ -277,6 +277,24 @@ cargo build --package sync-fs --features cli --release
 
 # Or specify a custom port
 ./target/release/sync-mount data.sync --port 8080
+
+# Writable mode: store uploads as .sync files in a directory
+./target/release/sync-mount --writable ./sync-store
+```
+
+#### Writable WebDAV (Sync Store)
+
+Writable mode exposes a directory-backed WebDAV share. Files you drop into the
+mount are automatically wrapped into `.sync` archives in the store directory.
+Overwriting a file updates the existing `.sync` payload.
+
+```bash
+# Start writable WebDAV server (directory is created if missing)
+./target/release/sync-mount --writable ./sync-store --port 4919
+
+# Resulting archives:
+# ./sync-store/report.pdf.sync
+# ./sync-store/notes.md.sync
 ```
 
 Then mount in Finder:
@@ -316,6 +334,18 @@ async fn main() -> std::io::Result<()> {
 }
 ```
 
+#### Programmatic Writable WebDAV Server
+
+```rust
+use sync_fs::webdav::serve_writable;
+
+#[tokio::main]
+async fn main() -> std::io::Result<()> {
+    // Start server on port 4918 (blocks until Ctrl+C)
+    serve_writable("./sync-store", 4918).await
+}
+```
+
 #### Background Server for Applications
 
 ```rust
@@ -336,6 +366,20 @@ async fn main() -> std::io::Result<()> {
     // Do other work...
     
     // Shutdown when done
+    server.shutdown();
+    Ok(())
+}
+```
+
+#### Background Writable Server for Applications
+
+```rust
+use sync_fs::webdav::serve_writable_background;
+
+#[tokio::main]
+async fn main() -> std::io::Result<()> {
+    let server = serve_writable_background("./sync-store", 0).await?;
+    println!("Server running at {}", server.mount_url());
     server.shutdown();
     Ok(())
 }

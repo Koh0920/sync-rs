@@ -69,6 +69,7 @@
 //! ```
 
 mod vfs;
+pub mod store;
 
 #[cfg(feature = "webdav")]
 pub mod webdav;

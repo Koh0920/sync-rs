@@ -28,6 +28,10 @@
 
 mod filesystem;
 mod server;
+mod writable;
 
 pub use filesystem::SyncDavFs;
-pub use server::{serve, serve_background, SyncWebDavServer};
+pub use writable::WritableSyncFs;
+pub use server::{
+    serve, serve_background, serve_writable, serve_writable_background, SyncWebDavServer,
+};

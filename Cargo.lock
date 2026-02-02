@@ -1425,6 +1425,7 @@ name = "sync-fs"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "chrono",
  "clap",
  "dav-server",
  "env_logger",
@@ -1439,6 +1440,7 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
+ "toml",
  "zip",
 ]
 

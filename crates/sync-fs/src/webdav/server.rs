@@ -3,7 +3,8 @@
 //! This module provides the HTTP server that hosts the WebDAV filesystem,
 //! allowing clients to connect and mount the archive.
 
-use super::SyncDavFs;
+use super::{SyncDavFs, WritableSyncFs};
+use crate::store::SyncStore;
 use crate::vfs::VfsMount;
 use dav_server::{fakels::FakeLs, DavHandler};
 use hyper::server::conn::http1;
@@ -14,6 +15,7 @@ use std::convert::Infallible;
 use std::io;
 use std::net::SocketAddr;
 use std::path::Path;
+use std::fs;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 
@@ -119,6 +121,65 @@ pub async fn serve<P: AsRef<Path>>(archive_path: P, vfs: VfsMount, port: u16) ->
     }
 }
 
+/// Start a writable WebDAV server that persists uploads to `.sync` files.
+///
+/// # Arguments
+///
+/// * `store_dir` - Directory to store `.sync` archives
+/// * `port` - Port to listen on (0 for auto-assign)
+pub async fn serve_writable<P: AsRef<Path>>(store_dir: P, port: u16) -> io::Result<()> {
+    let addr: SocketAddr = ([127, 0, 0, 1], port).into();
+    fs::create_dir_all(store_dir.as_ref())?;
+
+    let store = SyncStore::new(store_dir.as_ref().to_path_buf());
+    let fs = WritableSyncFs::new(store);
+
+    let dav_server = DavHandler::builder()
+        .filesystem(Box::new(fs))
+        .locksystem(FakeLs::new())
+        .build_handler();
+
+    let listener = TcpListener::bind(addr).await?;
+    let local_addr = listener.local_addr()?;
+
+    info!("Writable WebDAV server listening on http://{}", local_addr);
+    info!("");
+    info!("To mount in Finder:");
+    info!("  1. Open Finder");
+    info!("  2. Press Cmd+K (Go → Connect to Server)");
+    info!("  3. Enter: http://{}", local_addr);
+    info!("  4. Click Connect");
+    info!("");
+    info!("To mount from terminal:");
+    info!("  mkdir -p /tmp/sync-mount");
+    info!("  mount_webdav http://{} /tmp/sync-mount", local_addr);
+    info!("");
+    info!("Press Ctrl+C to stop the server");
+
+    loop {
+        let (stream, remote_addr) = listener.accept().await?;
+        debug!("Connection from {}", remote_addr);
+
+        let dav_server = dav_server.clone();
+        let io = TokioIo::new(stream);
+
+        tokio::spawn(async move {
+            if let Err(err) = http1::Builder::new()
+                .serve_connection(
+                    io,
+                    service_fn(move |req| {
+                        let dav_server = dav_server.clone();
+                        async move { Ok::<_, Infallible>(dav_server.handle(req).await) }
+                    }),
+                )
+                .await
+            {
+                error!("Connection error: {:?}", err);
+            }
+        });
+    }
+}
+
 /// Start a WebDAV server in the background.
 ///
 /// Returns a handle that can be used to get the server address and shut it down.
@@ -171,6 +232,82 @@ pub async fn serve_background<P: AsRef<Path>>(
     let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
 
     info!("WebDAV server started on http://{}", local_addr);
+
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                result = listener.accept() => {
+                    match result {
+                        Ok((stream, remote_addr)) => {
+                            debug!("Connection from {}", remote_addr);
+                            let dav_server = dav_server.clone();
+                            let io = TokioIo::new(stream);
+
+                            tokio::spawn(async move {
+                                if let Err(err) = http1::Builder::new()
+                                    .serve_connection(
+                                        io,
+                                        service_fn(move |req| {
+                                            let dav_server = dav_server.clone();
+                                            async move {
+                                                Ok::<_, Infallible>(dav_server.handle(req).await)
+                                            }
+                                        }),
+                                    )
+                                    .await
+                                {
+                                    error!("Connection error: {:?}", err);
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            error!("Accept error: {:?}", e);
+                        }
+                    }
+                }
+                _ = &mut shutdown_rx => {
+                    info!("WebDAV server shutting down");
+                    break;
+                }
+            }
+        }
+    });
+
+    Ok(SyncWebDavServer {
+        addr: local_addr,
+        shutdown_tx: Some(shutdown_tx),
+    })
+}
+
+/// Start a writable WebDAV server in the background.
+///
+/// Returns a handle that can be used to get the server address and shut it down.
+///
+/// # Arguments
+///
+/// * `store_dir` - Directory to store `.sync` archives
+/// * `port` - Port to listen on (0 for auto-assign)
+pub async fn serve_writable_background<P: AsRef<Path>>(
+    store_dir: P,
+    port: u16,
+) -> io::Result<SyncWebDavServer> {
+    let addr: SocketAddr = ([127, 0, 0, 1], port).into();
+    fs::create_dir_all(store_dir.as_ref())?;
+
+    let store = SyncStore::new(store_dir.as_ref().to_path_buf());
+    let fs = WritableSyncFs::new(store);
+
+    let dav_server = DavHandler::builder()
+        .filesystem(Box::new(fs))
+        .locksystem(FakeLs::new())
+        .build_handler();
+
+    let listener = TcpListener::bind(addr).await?;
+    let local_addr = listener.local_addr()?;
+
+    let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
+
+    info!("Writable WebDAV server started on http://{}", local_addr);
 
     tokio::spawn(async move {
         loop {

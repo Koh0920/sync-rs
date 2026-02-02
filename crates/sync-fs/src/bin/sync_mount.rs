@@ -9,12 +9,16 @@
 //! # Start WebDAV server
 //! sync-mount example.sync
 //!
+//! # Start writable WebDAV server
+//! sync-mount --writable ./sync-store
+//!
 //! # Then mount in Finder: Cmd+K → http://localhost:4918
 //! ```
 
 use clap::Parser;
 use env_logger::Env;
 use log::{error, info};
+use std::fs;
 use std::path::PathBuf;
 use std::process;
 use sync_format::SyncArchive;
@@ -29,7 +33,7 @@ use sync_fs::{VfsMount, VfsMountConfig};
 #[command(name = "sync-mount")]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Path to the .sync archive file
+    /// Path to the .sync archive file (or store directory with --writable)
     #[arg(value_name = "ARCHIVE")]
     archive: PathBuf,
 
@@ -40,6 +44,10 @@ struct Args {
     /// Enable verbose logging
     #[arg(short, long)]
     verbose: bool,
+
+    /// Enable writable mode (store uploads as .sync files)
+    #[arg(long)]
+    writable: bool,
 }
 
 #[tokio::main]
@@ -51,6 +59,30 @@ async fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or(log_level))
         .format_timestamp_millis()
         .init();
+
+    if args.writable {
+        if args.archive.exists() && args.archive.is_file() {
+            error!(
+                "Writable mode expects a directory, got file: {}",
+                args.archive.display()
+            );
+            process::exit(1);
+        }
+
+        if let Err(e) = fs::create_dir_all(&args.archive) {
+            error!("Failed to create store directory: {}", e);
+            process::exit(1);
+        }
+
+        info!("Writable store: {}", args.archive.display());
+
+        if let Err(e) = webdav::serve_writable(&args.archive, args.port).await {
+            error!("Server error: {}", e);
+            process::exit(1);
+        }
+
+        return;
+    }
 
     // Validate archive path
     if !args.archive.exists() {
