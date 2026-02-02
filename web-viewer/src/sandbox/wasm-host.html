@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WASM Sandbox</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; connect-src 'none';">
+  <style>
+    body { margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+    #output { padding: 16px; white-space: pre-wrap; font-family: monospace; }
+    .error { color: #dc2626; }
+    .success { color: #16a34a; }
+  </style>
+</head>
+<body>
+  <div id="output"></div>
+  
+  <script type="module">
+    /**
+     * WASM Sandbox Host
+     * 
+     * This iframe provides an isolated execution environment for sync.wasm files.
+     * Communication happens via postMessage with the parent window.
+     * 
+     * Protocol:
+     * - Parent -> Sandbox: { type: 'execute', wasmBytes: ArrayBuffer, payload: ArrayBuffer, context: object }
+     * - Sandbox -> Parent: { type: 'result', success: boolean, output?: any, error?: string }
+     */
+
+    const output = document.getElementById('output');
+    
+    function log(message, type = 'info') {
+      const line = document.createElement('div');
+      line.className = type;
+      line.textContent = message;
+      output.appendChild(line);
+    }
+
+    // WASI-like environment for basic I/O
+    class WasiEnvironment {
+      constructor() {
+        this.stdin = [];
+        this.stdout = [];
+        this.stderr = [];
+      }
+
+      // Write to stdout
+      writeStdout(data) {
+        if (typeof data === 'string') {
+          this.stdout.push(data);
+        } else {
+          this.stdout.push(new TextDecoder().decode(data));
+        }
+      }
+
+      // Write to stderr
+      writeStderr(data) {
+        if (typeof data === 'string') {
+          this.stderr.push(data);
+        } else {
+          this.stderr.push(new TextDecoder().decode(data));
+        }
+      }
+
+      // Read from stdin
+      readStdin() {
+        return this.stdin.shift() || null;
+      }
+
+      // Get all stdout content
+      getStdout() {
+        return this.stdout.join('');
+      }
+
+      // Get all stderr content
+      getStderr() {
+        return this.stderr.join('');
+      }
+
+      // Set stdin data (from payload/context)
+      setStdin(data) {
+        if (typeof data === 'string') {
+          this.stdin.push(data);
+        } else {
+          this.stdin.push(new TextDecoder().decode(data));
+        }
+      }
+    }
+
+    // Simple WASI imports for basic modules
+    function createWasiImports(wasi) {
+      return {
+        wasi_snapshot_preview1: {
+          // fd_write - write to file descriptor
+          fd_write: (fd, iovs_ptr, iovs_len, nwritten_ptr) => {
+            // Stub - actual implementation would need memory access
+            return 0; // WASI_ESUCCESS
+          },
+          // fd_read - read from file descriptor
+          fd_read: (fd, iovs_ptr, iovs_len, nread_ptr) => {
+            return 0;
+          },
+          // proc_exit - exit process
+          proc_exit: (code) => {
+            throw new Error(`WASM exited with code ${code}`);
+          },
+          // clock_time_get
+          clock_time_get: (id, precision, time_ptr) => {
+            return 0;
+          },
+          // environ_sizes_get
+          environ_sizes_get: (environ_count_ptr, environ_buf_size_ptr) => {
+            return 0;
+          },
+          // environ_get
+          environ_get: (environ_ptr, environ_buf_ptr) => {
+            return 0;
+          },
+          // args_sizes_get
+          args_sizes_get: (argc_ptr, argv_buf_size_ptr) => {
+            return 0;
+          },
+          // args_get
+          args_get: (argv_ptr, argv_buf_ptr) => {
+            return 0;
+          },
+        },
+        // Custom sync-rs host functions
+        sync_host: {
+          // Read payload data
+          read_payload: () => {
+            // Return payload length or handle
+            return 0;
+          },
+          // Write output data
+          write_output: (ptr, len) => {
+            // Write output to stdout buffer
+          },
+          // Log message
+          log_message: (ptr, len) => {
+            // Log for debugging
+          },
+        },
+      };
+    }
+
+    async function executeWasm(wasmBytes, payload, context) {
+      const wasi = new WasiEnvironment();
+      
+      // Set up stdin with context/payload info
+      const guestRequest = {
+        version: 'guest.v1',
+        request_id: `req_${Date.now()}`,
+        action: 'ExecuteWasm',
+        context: {
+          mode: 'Widget',
+          role: 'Consumer',
+          permissions: {
+            can_read_payload: true,
+            can_read_context: true,
+            can_write_payload: false,
+            can_write_context: false,
+            can_execute_wasm: true,
+            allowed_hosts: [],
+            allowed_env: [],
+          },
+          sync_path: 'browser://memory',
+          host_app: 'web-viewer',
+        },
+        input: context || {},
+      };
+      
+      wasi.setStdin(JSON.stringify(guestRequest));
+
+      try {
+        const wasmModule = await WebAssembly.compile(wasmBytes);
+        const imports = createWasiImports(wasi);
+        
+        const instance = await WebAssembly.instantiate(wasmModule, imports);
+        
+        // Get exported functions
+        const exports = instance.exports;
+        
+        // Check for standard entry points
+        if (typeof exports._start === 'function') {
+          exports._start();
+        } else if (typeof exports.main === 'function') {
+          exports.main();
+        } else if (typeof exports.run === 'function') {
+          exports.run();
+        }
+
+        return {
+          success: true,
+          stdout: wasi.getStdout(),
+          stderr: wasi.getStderr(),
+          exports: Object.keys(exports),
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error.message,
+          stderr: wasi.getStderr(),
+        };
+      }
+    }
+
+    // Listen for messages from parent
+    window.addEventListener('message', async (event) => {
+      const { type, wasmBytes, payload, context, requestId } = event.data;
+
+      if (type === 'execute') {
+        log('Executing WASM module...', 'info');
+        
+        try {
+          const result = await executeWasm(wasmBytes, payload, context);
+          
+          if (result.success) {
+            log('Execution complete', 'success');
+            if (result.stdout) {
+              log(`Output: ${result.stdout}`, 'info');
+            }
+          } else {
+            log(`Execution failed: ${result.error}`, 'error');
+          }
+
+          window.parent.postMessage({
+            type: 'result',
+            requestId,
+            ...result,
+          }, '*');
+        } catch (error) {
+          log(`Error: ${error.message}`, 'error');
+          
+          window.parent.postMessage({
+            type: 'result',
+            requestId,
+            success: false,
+            error: error.message,
+          }, '*');
+        }
+      } else if (type === 'ping') {
+        window.parent.postMessage({ type: 'pong', requestId }, '*');
+      }
+    });
+
+    // Signal ready
+    window.parent.postMessage({ type: 'ready' }, '*');
+    log('WASM Sandbox initialized', 'success');
+  </script>
+</body>
+</html>
