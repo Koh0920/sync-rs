@@ -1,45 +1,45 @@
 <div align="center">
-  <img src="logo.png" alt="sync-rs logo" width="200"/>
+  <img src="logo.png" alt="sync-rs logo" width="500"/>
   
   # sync-rs
 
   **The Self-Updating Archive**: Rust implementation of the `.sync` format for intelligent, self-healing data containers.
 </div>
 
-## 🎯 Overview
+## Overview
 
 `sync-rs` is a modular Rust workspace for handling `.sync` archives - a standardized format that combines:
 
-- ✨ **Zero-Copy Data Access**: Instant file operations with no extraction overhead
-- 🔄 **Self-Updating Logic**: Embedded WASM modules that refresh data autonomously
-- 🔒 **Sandboxed Execution**: Policy-driven permission model with OS-level isolation
-- 📦 **ZIP-Compatible Storage**: Standard ZIP container with specialized structure
+- **Zero-Copy Data Access**: Instant file operations with no extraction overhead
+- **Self-Updating Logic**: Embedded WASM modules that refresh data autonomously
+- **Sandboxed Execution**: Policy-driven permission model with OS-level isolation
+- **ZIP-Compatible Storage**: Standard ZIP container with specialized structure
 
 Perfect for offline-first applications, edge computing, and scenarios requiring data with built-in update intelligence.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 The workspace is organized into three focused crates with clear separation of concerns:
 
 ```mermaid
 graph TD
     subgraph "Application Layer"
-        App[🚀 Capsule App / CLI]
-        FUSE[💾 FUSE Daemon]
+        App[Capsule App / CLI]
+        FUSE[FUSE Daemon]
     end
 
     subgraph "sync-rs Workspace"
-        Runtime[⚙️ sync-runtime<br/>Guest Session & WASM Execution]
-        FS[📂 sync-fs<br/>VFS Abstraction & Mounting]
-        Format[📦 sync-format<br/>Archive Parser & Builder]
+        Runtime[sync-runtime<br/>Guest Session & WASM Execution]
+        FS[sync-fs<br/>VFS Abstraction & Mounting]
+        Format[sync-format<br/>Archive Parser & Builder]
     end
 
     subgraph "System"
         WASM[WebAssembly Runtime]
         LSM[Linux Landlock/Sandbox]
-        Disk[📁 Storage]
+        Disk[Storage]
     end
 
     App --> Runtime
@@ -60,7 +60,7 @@ graph TD
 
 ---
 
-## 📦 Crates
+## Crates
 
 ### `sync-format` (Core)
 **Responsibility**: `.sync` (ZIP) archive reading/writing, `manifest.toml` parsing, signature verification
@@ -94,7 +94,7 @@ graph TD
 
 ---
 
-## 🔬 Anatomy of a `.sync` File
+## Anatomy of a `.sync` File
 
 A `.sync` archive is a standard ZIP file with a specific internal structure designed for zero-copy access and self-update capabilities:
 
@@ -103,19 +103,19 @@ A `.sync` archive is a standard ZIP file with a specific internal structure desi
 │         report.csv.sync (ZIP Archive)                   │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
-│  📄 manifest.toml                                       │
+│  manifest.toml                                         │
 │      ├─ Metadata (name, description, TTL)              │
 │      ├─ Ownership (creator, team)                      │
 │      ├─ Permissions (read, write, execute)             │
 │      └─ Policy (network scope, update rules)           │
 │                                                         │
-│  📦 payload (STORED / No Compression)                   │
-│      └─ ✨ RAW DATA - Zero-Copy Access via VFS         │
+│  payload (STORED / No Compression)                     │
+│      └─ RAW DATA - Zero-Copy Access via VFS           │
 │                                                         │
-│  🔧 sync.wasm (Optional)                                │
-│      └─ 🔒 Update Logic - Executed in Sandbox          │
+│  sync.wasm (Optional)                                  │
+│      └─ Update Logic - Executed in Sandbox            │
 │                                                         │
-│  📋 context.json (Optional)                             │
+│  context.json (Optional)                               │
 │      └─ Context Parameters for WASM execution          │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
@@ -128,7 +128,7 @@ A `.sync` archive is a standard ZIP file with a specific internal structure desi
 
 ---
 
-## 🔄 Data Flow & Lifecycle
+## Data Flow & Lifecycle
 
 How a `.sync` file provides instant access while staying up-to-date in the background:
 
@@ -140,12 +140,12 @@ sequenceDiagram
     participant Runtime as sync-runtime
     participant Cloud as Remote Source
 
-    Note over App, Archive: 1️⃣ Instant Open (Offline First)
+    Note over App, Archive: 1. Instant Open (Offline First)
     App->>VFS: Read File
     VFS->>Archive: Map 'payload' (Zero-Copy)
     Archive-->>App: Return Data
 
-    Note over VFS, Cloud: 2️⃣ Background Update (Self-Healing)
+    Note over VFS, Cloud: 2. Background Update (Self-Healing)
     VFS->>Archive: Check TTL (manifest.toml)
     alt is expired or stale
         VFS->>Runtime: Trigger Update
@@ -161,7 +161,7 @@ sequenceDiagram
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Building the Workspace
 
@@ -245,7 +245,7 @@ for entry in mount.entries() {
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Run all tests
@@ -262,7 +262,7 @@ cargo test -- --nocapture
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 Generate and view crate documentation:
 
@@ -272,7 +272,7 @@ cargo doc --workspace --open
 
 ---
 
-## 🛠️ Development Workflow
+## Development Workflow
 
 ### Before Committing
 
@@ -292,7 +292,7 @@ cargo build --release --workspace
 
 ---
 
-## 🏛️ Architecture Decision Records
+## Architecture Decision Records
 
 For detailed architectural rationale, see:
 
@@ -301,7 +301,7 @@ For detailed architectural rationale, see:
 
 ---
 
-## 📜 License
+## License
 
 Licensed under either of:
 
@@ -312,10 +312,6 @@ at your option.
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please follow the Rust code style guidelines and ensure all tests pass before submitting a pull request.
-
----
-
-**Built with ❤️ by the Capsule Project**
