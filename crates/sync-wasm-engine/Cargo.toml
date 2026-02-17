@@ -1,0 +1,25 @@
+[package]
+name = "sync-wasm-engine"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WASM runtime engine for executing sync.wasm modules with host functions (wasmtime-based)"
+
+[dependencies]
+sync-format = { workspace = true, features = ["encryption"] }
+wasmtime = { workspace = true }
+wasmtime-wasi = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+reqwest = { workspace = true }
+thiserror = { workspace = true }
+zip = { workspace = true }
+secrecy = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

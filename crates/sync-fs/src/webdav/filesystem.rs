@@ -78,7 +78,11 @@ impl SyncDavFs {
 }
 
 impl DavFileSystem for SyncDavFs {
-    fn open<'a>(&'a self, path: &'a DavPath, options: OpenOptions) -> FsFuture<'a, Box<dyn DavFile>> {
+    fn open<'a>(
+        &'a self,
+        path: &'a DavPath,
+        options: OpenOptions,
+    ) -> FsFuture<'a, Box<dyn DavFile>> {
         trace!("open({:?}, {:?})", path, options);
 
         let result = (|| {

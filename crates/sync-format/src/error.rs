@@ -23,6 +23,14 @@ pub enum Error {
     #[error("payload not found in archive")]
     PayloadNotFound,
 
+    /// Decryption error (requires `encryption` feature).
+    #[error("decryption error: {0}")]
+    DecryptError(String),
+
+    /// Encryption error (requires `encryption` feature).
+    #[error("encryption error: {0}")]
+    EncryptError(String),
+
     /// Error from the zip library.
     #[error("zip error: {0}")]
     ZipError(#[from] zip::result::ZipError),

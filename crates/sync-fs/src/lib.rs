@@ -68,8 +68,8 @@
 //! mount("data.sync", "/mnt/data", vfs)?;
 //! ```
 
-mod vfs;
 pub mod store;
+mod vfs;
 
 #[cfg(feature = "webdav")]
 pub mod webdav;

@@ -4,6 +4,7 @@ members = [
     "crates/sync-format",
     "crates/sync-runtime",
     "crates/sync-fs",
+    "crates/sync-wasm-engine",
 ]
 
 [workspace.package]
@@ -18,6 +19,7 @@ repository = "https://github.com/anomalyco/sync-rs"
 sync-format = { path = "crates/sync-format" }
 sync-runtime = { path = "crates/sync-runtime" }
 sync-fs = { path = "crates/sync-fs" }
+sync-wasm-engine = { path = "crates/sync-wasm-engine" }
 
 # Shared dependencies
 serde = { version = "1.0", features = ["derive"] }
@@ -33,6 +35,10 @@ tempfile = "3.8"
 log = "0.4"
 env_logger = "0.11"
 clap = { version = "4", features = ["derive"] }
+ed25519-dalek = { version = "2", features = ["std", "rand_core"] }
+bs58 = "0.5"
+hex = "0.4"
+rand = { version = "0.8", features = ["std_rng"] }
 
 # WebDAV server
 dav-server = "0.10"
@@ -42,6 +48,17 @@ hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
 futures = "0.3"
 bytes = "1"
+
+# Encryption (optional, for vault support)
+age = "0.10"
+secrecy = "0.8"
+scrypt = "0.11"
+
+# WASM runtime (for sync-wasm-engine)
+wasmtime = "28.0"
+wasmtime-wasi = "28.0"
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+tracing = "0.1"
 
 # FUSE (optional, for power users on Linux)
 fuser = "0.16"
