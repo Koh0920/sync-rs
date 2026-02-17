@@ -27,11 +27,14 @@
 //! ```
 
 mod filesystem;
+mod remote;
 mod server;
 mod writable;
 
 pub use filesystem::SyncDavFs;
-pub use writable::WritableSyncFs;
+pub use remote::{CacheConfig, RemoteMount, RemoteMountConfig};
 pub use server::{
-    serve, serve_background, serve_writable, serve_writable_background, SyncWebDavServer,
+    serve, serve_background, serve_dual_background, serve_writable, serve_writable_background,
+    SyncWebDavServer,
 };
+pub use writable::WritableSyncFs;

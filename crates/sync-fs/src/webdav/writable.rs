@@ -65,10 +65,7 @@ impl WritableSyncFs {
 
     fn name_from_path(&self, path: &DavPath) -> Result<String, FsError> {
         let rel = self.rel_path(path)?;
-        let name = rel
-            .to_string_lossy()
-            .trim_start_matches('/')
-            .to_string();
+        let name = rel.to_string_lossy().trim_start_matches('/').to_string();
         if name.is_empty() {
             return Err(FsError::NotFound);
         }
@@ -110,7 +107,8 @@ impl WritableSyncFs {
         let base_name = archive
             .archive_file_stem()
             .unwrap_or_else(|| "payload".to_string());
-        let display_name = display_name_for_archive(&base_name, &archive.manifest().sync.display_ext);
+        let display_name =
+            display_name_for_archive(&base_name, &archive.manifest().sync.display_ext);
 
         Ok(SyncFileEntry {
             display_name,
@@ -163,7 +161,11 @@ impl WritableSyncFs {
 }
 
 impl DavFileSystem for WritableSyncFs {
-    fn open<'a>(&'a self, path: &'a DavPath, options: OpenOptions) -> FsFuture<'a, Box<dyn DavFile>> {
+    fn open<'a>(
+        &'a self,
+        path: &'a DavPath,
+        options: OpenOptions,
+    ) -> FsFuture<'a, Box<dyn DavFile>> {
         trace!("open({:?}, {:?})", path, options);
 
         let result = (|| {
@@ -180,7 +182,8 @@ impl DavFileSystem for WritableSyncFs {
                 return Err(FsError::NotImplemented);
             }
 
-            let wants_write = options.write || options.create || options.create_new || options.truncate;
+            let wants_write =
+                options.write || options.create || options.create_new || options.truncate;
             if wants_write {
                 let existing = self.resolve_sync_path(&name)?;
                 if options.create_new && existing.is_some() {
@@ -259,9 +262,10 @@ impl DavFileSystem for WritableSyncFs {
                 if metadata.is_dir() {
                     let modified = metadata.modified().unwrap_or_else(|_| SystemTime::now());
                     let created = metadata.created().unwrap_or(modified);
-                    return Ok(Box::new(WritableDavMetaData::directory_with_time(
-                        created, modified,
-                    )) as Box<dyn DavMetaData>);
+                    return Ok(
+                        Box::new(WritableDavMetaData::directory_with_time(created, modified))
+                            as Box<dyn DavMetaData>,
+                    );
                 }
             }
 
@@ -361,7 +365,9 @@ impl DavFileSystem for WritableSyncFs {
                 return Ok(());
             }
 
-            let from_sync_path = self.resolve_sync_path(&from_name)?.ok_or(FsError::NotFound)?;
+            let from_sync_path = self
+                .resolve_sync_path(&from_name)?
+                .ok_or(FsError::NotFound)?;
             let to_sync_path = self
                 .inner
                 .store
@@ -391,7 +397,9 @@ impl DavFileSystem for WritableSyncFs {
                 return Ok(());
             }
 
-            let from_sync_path = self.resolve_sync_path(&from_name)?.ok_or(FsError::NotFound)?;
+            let from_sync_path = self
+                .resolve_sync_path(&from_name)?
+                .ok_or(FsError::NotFound)?;
             let to_sync_path = self
                 .inner
                 .store
@@ -485,7 +493,6 @@ struct WriteState {
     store: Arc<SyncStore>,
     committed: bool,
 }
-
 
 #[derive(Debug)]
 struct WriteBuffer {

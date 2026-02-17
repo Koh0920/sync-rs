@@ -6,16 +6,17 @@
 use super::{SyncDavFs, WritableSyncFs};
 use crate::store::SyncStore;
 use crate::vfs::VfsMount;
-use dav_server::{fakels::FakeLs, DavHandler};
+use dav_server::{body::Body as DavBody, fakels::FakeLs, DavHandler};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
+use hyper::{Response, StatusCode};
 use hyper_util::rt::TokioIo;
 use log::{debug, error, info};
 use std::convert::Infallible;
+use std::fs;
 use std::io;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::fs;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 
@@ -256,6 +257,108 @@ pub async fn serve_background<P: AsRef<Path>>(
                                     )
                                     .await
                                 {
+                                    error!("Connection error: {:?}", err);
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            error!("Accept error: {:?}", e);
+                        }
+                    }
+                }
+                _ = &mut shutdown_rx => {
+                    info!("WebDAV server shutting down");
+                    break;
+                }
+            }
+        }
+    });
+
+    Ok(SyncWebDavServer {
+        addr: local_addr,
+        shutdown_tx: Some(shutdown_tx),
+    })
+}
+
+/// Start a dual WebDAV server in the background.
+///
+/// This exposes the app archive at `/app` and the data archive at `/data`.
+///
+/// # Arguments
+///
+/// * `app_archive_path` - Path to the app `.sync` archive
+/// * `app_vfs` - VFS mount for the app archive
+/// * `data_archive_path` - Path to the data `.sync` archive
+/// * `data_vfs` - VFS mount for the data archive
+/// * `port` - Port to listen on (0 for auto-assign)
+pub async fn serve_dual_background<P: AsRef<Path>, Q: AsRef<Path>>(
+    app_archive_path: P,
+    app_vfs: VfsMount,
+    data_archive_path: Q,
+    data_vfs: VfsMount,
+    port: u16,
+) -> io::Result<SyncWebDavServer> {
+    let addr: SocketAddr = ([127, 0, 0, 1], port).into();
+
+    let app_fs = SyncDavFs::new(app_vfs, app_archive_path.as_ref().to_path_buf());
+    let data_fs = SyncDavFs::new(data_vfs, data_archive_path.as_ref().to_path_buf());
+
+    let app_server = DavHandler::builder()
+        .filesystem(Box::new(app_fs))
+        .locksystem(FakeLs::new())
+        .strip_prefix("/app")
+        .build_handler();
+
+    let data_server = DavHandler::builder()
+        .filesystem(Box::new(data_fs))
+        .locksystem(FakeLs::new())
+        .strip_prefix("/data")
+        .build_handler();
+
+    let listener = TcpListener::bind(addr).await?;
+    let local_addr = listener.local_addr()?;
+
+    let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
+
+    info!("WebDAV server started on http://{}", local_addr);
+
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                result = listener.accept() => {
+                    match result {
+                        Ok((stream, remote_addr)) => {
+                            debug!("Connection from {}", remote_addr);
+                            let app_server = app_server.clone();
+                            let data_server = data_server.clone();
+                            let io = TokioIo::new(stream);
+
+                            tokio::spawn(async move {
+                                let result = http1::Builder::new()
+                                    .serve_connection(
+                                        io,
+                                        service_fn(move |req| {
+                                            let app_server = app_server.clone();
+                                            let data_server = data_server.clone();
+                                            async move {
+                                                let path = req.uri().path();
+                                                let response = if path == "/app" || path.starts_with("/app/") {
+                                                    app_server.handle(req).await
+                                                } else if path == "/data" || path.starts_with("/data/") {
+                                                    data_server.handle(req).await
+                                                } else {
+                                                    Response::builder()
+                                                        .status(StatusCode::NOT_FOUND)
+                                                        .body(DavBody::from("Not Found"))
+                                                        .unwrap_or_else(|_| Response::new(DavBody::empty()))
+                                                };
+                                                Ok::<_, Infallible>(response)
+                                            }
+                                        }),
+                                    )
+                                    .await;
+
+                                if let Err(err) = result {
                                     error!("Connection error: {:?}", err);
                                 }
                             });
