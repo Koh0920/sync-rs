@@ -6,6 +6,14 @@
 //! - `.sync` archive reading and writing
 //! - `manifest.toml` parsing and validation
 //! - Archive builder for creating new `.sync` files
+//! - Encryption/decryption support (with `encryption` feature)
+//! - Signature verification (with `signatures` feature)
+//!
+//! ## Features
+//!
+//! - `signatures` (default): Ed25519 signature verification
+//! - `encryption`: age-based payload encryption/decryption for vault archives
+//! - `crypto`: Enables both `signatures` and `encryption`
 //!
 //! ## Example
 //!
@@ -28,14 +36,28 @@ mod builder;
 mod error;
 mod format;
 mod manifest;
+#[cfg(feature = "signatures")]
+pub mod verification;
 
 pub use builder::SyncBuilder;
 pub use error::{Error, Result};
+#[cfg(feature = "encryption")]
+pub use format::{decrypt_data, encrypt_data};
 pub use format::{SyncArchive, SyncEntry};
 pub use manifest::{
-    Manifest, ManifestMetadata, ManifestOwnership, ManifestPermissions, ManifestPolicy,
-    ManifestVerification, NetworkScope, SyncManifest, SyncSection,
+    EncryptionMeta, Manifest, ManifestCapabilities, ManifestEncryption, ManifestMetadata,
+    ManifestOwnership, ManifestPermissions, ManifestPolicy, ManifestSignature,
+    ManifestVerification, NetworkScope, SyncManifest, SyncSection, SyncVariant,
 };
+#[cfg(feature = "signatures")]
+pub use verification::{
+    compute_content_hash, verify_manifest_signature, verify_sync_file, ManifestSignatureResult,
+    SyncSignature, VerificationResult,
+};
+
+// Re-export secrecy for consumers using the encryption feature
+#[cfg(feature = "encryption")]
+pub use secrecy::SecretString;
 
 /// Policy for sharing `.sync` archives across networks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

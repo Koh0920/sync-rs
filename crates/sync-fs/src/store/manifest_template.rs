@@ -36,6 +36,7 @@ impl ManifestTemplate {
                 version: DEFAULT_SYNC_VERSION.to_string(),
                 content_type: content_type.to_string(),
                 display_ext,
+                variant: Default::default(),
             },
             meta: ManifestMetadata {
                 created_by: self.created_by.clone(),
@@ -52,6 +53,9 @@ impl ManifestTemplate {
             },
             ownership: ManifestOwnership::default(),
             verification: ManifestVerification::default(),
+            capabilities: Default::default(),
+            signature: None,
+            encryption: Default::default(),
         }
     }
 }

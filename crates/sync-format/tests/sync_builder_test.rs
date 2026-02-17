@@ -16,6 +16,7 @@ fn sync_builder_creates_valid_archive() {
             version: "1.2".to_string(),
             content_type: "text/plain".to_string(),
             display_ext: "txt".to_string(),
+            variant: Default::default(),
         },
         meta: ManifestMetadata {
             created_by: "builder".to_string(),
@@ -29,6 +30,9 @@ fn sync_builder_creates_valid_archive() {
         permissions: Default::default(),
         ownership: Default::default(),
         verification: Default::default(),
+        capabilities: Default::default(),
+        signature: None,
+        encryption: Default::default(),
     };
 
     SyncBuilder::new()
@@ -156,6 +160,7 @@ fn sync_archive_detects_optional_entries() {
             version: "1.2".to_string(),
             content_type: "text/plain".to_string(),
             display_ext: "txt".to_string(),
+            variant: Default::default(),
         },
         meta: ManifestMetadata {
             created_by: "builder".to_string(),
@@ -169,6 +174,9 @@ fn sync_archive_detects_optional_entries() {
         permissions: Default::default(),
         ownership: Default::default(),
         verification: Default::default(),
+        capabilities: Default::default(),
+        signature: None,
+        encryption: Default::default(),
     };
 
     SyncBuilder::new()
@@ -207,6 +215,7 @@ fn sync_archive_update_payload_refreshes_offsets() {
             version: "1.2".to_string(),
             content_type: "text/plain".to_string(),
             display_ext: "txt".to_string(),
+            variant: Default::default(),
         },
         meta: ManifestMetadata {
             created_by: "builder".to_string(),
@@ -220,6 +229,9 @@ fn sync_archive_update_payload_refreshes_offsets() {
         permissions: Default::default(),
         ownership: Default::default(),
         verification: Default::default(),
+        capabilities: Default::default(),
+        signature: None,
+        encryption: Default::default(),
     };
 
     SyncBuilder::new()
